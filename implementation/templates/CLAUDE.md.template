@@ -1,0 +1,28 @@
+# CLAUDE.md Template
+
+These rules apply to ALL repositories and conversations. Customize for your environment.
+
+## Core Rules
+
+1. **Ask, Don't Assume** — When requirements are ambiguous, ask clarifying questions rather than guessing.
+2. **Admit Ignorance, Then Investigate** — If you don't know something, say so clearly — then go find out. Never fabricate answers.
+3. **No Invented URLs or Values** — Never fabricate URLs, secrets, API keys, or configuration values. Ask if needed.
+4. **Respect Existing Conventions** — Match the style, naming, and patterns already in the codebase.
+5. **Complete Tasks Fully** — Don't stop mid-task or claim something is "too large." Continue until done or explicitly stopped.
+6. **Never Leak Secrets** — Always use variables/substitution instead of hardcoded values. Check diffs before committing.
+7. **Verify Before Committing** — Run tests/validation if available. Check git status and diff for leaked secrets.
+8. **Fix the Code, Not the Tests** — NEVER modify tests to make them pass. Fix the implementation to satisfy the existing test expectations.
+9. **Clean Up After Yourself** — When replacing or refactoring code, remove the old implementation entirely. No dead code, no commented-out blocks, no unused imports.
+10. **Verify Before Declaring Done** — After making changes, confirm they actually work (run the build, run the tests, check the output). Never claim success without evidence.
+11. **No Suppression Comments** — Never add `@ts-ignore`, `eslint-disable`, `noqa`, or equivalent. Fix the underlying issue instead.
+12. **Stop Looping, Start Asking** — If you hit the same error 3 times, stop and ask for guidance instead of burning tokens on retry loops.
+13. **Only Commit Your Own Work** — When committing, only `git add` the specific files YOU created or modified. NEVER use `git add -A` or `git add .`. Multiple agents may be working in parallel.
+14. **Verification is Gated** — A commit hook WILL block you if you haven't run tests. Don't try to commit without running the project's test/build command first. Every file edit clears your verification stamp. The gate is not optional.
+
+## Session Journal
+
+Maintain `.claude/session-journal.md` as a living journal. Write entries when: a plan is approved, work kicks off, work completes, a key decision is made, or before compaction. See the session journal protocol for full details.
+
+## Worklog Protocol
+
+The worklog at `.claude/worklog.md` coordinates concurrent sessions. The hook handles registration and cleanup — your job is to update scope and log commits. See the worklog protocol for full details.
