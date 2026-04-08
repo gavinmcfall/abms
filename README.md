@@ -37,6 +37,12 @@ This RFC is structured as an outcome-focused declaration chain. Each document bu
 | [Flow: Correction Lifecycle](declaration/04-flow-correction.md) | How corrections are filed, matched, decayed, or promoted |
 | [Design](declaration/05-design.md) | Architecture that makes all flows real — components, integration, trade-offs |
 
+Implementation:
+- [Install Guide](implementation/INSTALL.md) — Step-by-step setup for Phase 1
+- [Rules Engine](implementation/rules-engine/) — Switch router, injection hook, outcome tracking, 9 context rulesets
+- [Hooks](implementation/hooks/) — All supporting hooks (verification gate, git safety, session journal, worklog, edit tracking)
+- [Settings](implementation/settings-hooks.json) — Complete hook wiring configuration
+
 Reference material:
 - [Existing Systems](reference/existing-systems.md) — Complete inventory of Claude Code infrastructure ABMS integrates with
 - [Research Sources](reference/research-sources.md) — All papers, products, and benchmarks cited
@@ -60,7 +66,9 @@ Key influences: MemPalace (verbatim storage + spatial indexing), FadeMem (Ebbing
 
 ## Status
 
-This is an RFC — a design for review and discussion. No implementation code exists yet. Plans (verifiable truth statements for each phase) will follow after review feedback.
+Phase 1 is implemented and tested. The rules engine, all hooks, context rulesets, and correction tracking are included in `implementation/` and ready to install. The declaration chain provides the full context — the research, the reasoning, and the design — so reviewers understand not just what was built but why.
+
+Phases 2-4 (MemPalace integration, FadeMem scoring, self-improving correction loop) are designed but not yet implemented. Plans (verifiable truth statements) for those phases will follow.
 
 ## License
 

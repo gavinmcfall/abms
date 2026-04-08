@@ -1,0 +1,134 @@
+{
+  "_comment": "Hook configuration for ABMS. Merge into your ~/.claude/settings.json under the 'hooks' key.",
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-journal.sh",
+            "timeout": 30,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/init-project.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/worklog-init.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat $CLAUDE_PROJECT_DIR/.claude/session-journal.md 2>/dev/null || echo 'No journal found for this project'"
+          },
+          {
+            "type": "command",
+            "command": "SID_FILE=$(ls -t $CLAUDE_PROJECT_DIR/.claude/.sid-* 2>/dev/null | head -1); echo \"WORKLOG_SID=$(cat $SID_FILE 2>/dev/null || echo unknown)\"; cat $CLAUDE_PROJECT_DIR/.claude/worklog.md 2>/dev/null || echo 'No worklog'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/git-safety.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/verify-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/rules-engine/inject.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/rules-engine/inject.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/rules-engine/inject.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/post-bash.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/rules-engine/outcome.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/edit-tracker.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/rules-engine/outcome.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/edit-tracker.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/rules-engine/outcome.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
