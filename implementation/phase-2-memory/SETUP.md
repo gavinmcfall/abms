@@ -17,6 +17,24 @@ Phase 2 adds verbatim memory storage with semantic search and a temporal knowled
 
 ## Step 1: Install MemPalace
 
+On systems with PEP 668 (externally-managed Python, e.g. Homebrew Python), use pipx for an isolated install:
+
+```bash
+pipx install mempalace
+```
+
+This puts the `mempalace` CLI on your PATH at `~/.local/bin/mempalace` and runs in its own isolated venv.
+
+If pipx isn't available, install it first:
+
+```bash
+brew install pipx   # macOS/Linuxbrew
+# or
+apt install pipx    # Debian/Ubuntu
+```
+
+On systems without PEP 668 restrictions, standard pip works:
+
 ```bash
 pip install mempalace
 ```
@@ -43,6 +61,14 @@ mempalace mine ~/projects/your-project/
 
 ## Step 4: Add MCP server
 
+For pipx installs, use the venv's Python directly (the system `python` may not have mempalace available):
+
+```bash
+claude mcp add mempalace -- ~/.local/pipx/venvs/mempalace/bin/python -m mempalace.mcp_server
+```
+
+For standard pip installs:
+
 ```bash
 claude mcp add mempalace -- python -m mempalace.mcp_server
 ```
@@ -59,7 +85,7 @@ This gives Claude Code 19 memory tools:
 
 ## Step 5: Add auto-save hooks
 
-Add to `~/.claude/settings.json`:
+MemPalace provides a built-in `hook run` subcommand that handles the save/precompact/session-start events. Add these to `~/.claude/settings.json` alongside your existing hooks (do not replace):
 
 ```json
 {
@@ -68,15 +94,23 @@ Add to `~/.claude/settings.json`:
       "matcher": "",
       "hooks": [{
         "type": "command",
-        "command": "python -m mempalace.hooks.mempal_save_hook",
+        "command": "mempalace hook run --hook stop --harness claude-code",
         "timeout": 30
       }]
     }],
     "PreCompact": [{
+      "matcher": "auto",
+      "hooks": [{
+        "type": "command",
+        "command": "mempalace hook run --hook precompact --harness claude-code",
+        "timeout": 60
+      }]
+    }],
+    "SessionStart": [{
       "matcher": "",
       "hooks": [{
         "type": "command",
-        "command": "python -m mempalace.hooks.mempal_precompact_hook",
+        "command": "mempalace hook run --hook session-start --harness claude-code",
         "timeout": 30
       }]
     }]
@@ -84,7 +118,7 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
-The save hook fires every 15 human messages and forces a structured memory save. The precompact hook fires before compaction and forces a comprehensive save.
+The stop hook fires after each assistant response and decides when to save based on message count. The precompact hook fires before compaction and forces a comprehensive save. The session-start hook loads wake-up context at the beginning of each session.
 
 ## Step 6: Update inject.sh for memory queries
 

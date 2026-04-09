@@ -71,27 +71,20 @@ $CORRECTION_OUTPUT"
 fi
 
 # Layer 5: MemPalace memory query (Phase 2)
+# CLI only exposes search; knowledge graph queries require MCP tools,
+# which are not available to bash hooks. Search still finds KG-stored content.
 if command -v mempalace &>/dev/null; then
   # Build contextual search query
-  SEARCH_CONTEXT="$RULESET"
-  [ -n "$SCOPE" ] && SEARCH_CONTEXT="$SCOPE $RULESET"
-  [ -n "$FILE_PATH" ] && SEARCH_CONTEXT="$SEARCH_CONTEXT $(basename "$FILE_PATH" 2>/dev/null)"
+  SEARCH_QUERY="$RULESET verification corrections"
+  [ -n "$SCOPE" ] && SEARCH_QUERY="$SCOPE $SEARCH_QUERY"
+  [ -n "$FILE_PATH" ] && SEARCH_QUERY="$SEARCH_QUERY $(basename "$FILE_PATH" 2>/dev/null)"
 
-  # Search for relevant corrections and advice
-  MEMORY_RESULTS=$(mempalace search \
-    "corrections and decisions for $SEARCH_CONTEXT" \
-    --limit 3 2>/dev/null | head -20)
+  # Search with timeout to avoid hanging the hook
+  MEMORY_RESULTS=$(timeout 3 mempalace search "$SEARCH_QUERY" --results 3 2>/dev/null | head -20)
 
-  # Search knowledge graph for failure patterns
-  KG_RESULTS=$(mempalace kg-query "claude" \
-    --predicate "failed_at" 2>/dev/null | head -10)
-
-  if [ -n "$MEMORY_RESULTS" ] || [ -n "$KG_RESULTS" ]; then
+  if [ -n "$MEMORY_RESULTS" ]; then
     OUTPUT+="── Memory ──
-"
-    [ -n "$MEMORY_RESULTS" ] && OUTPUT+="$MEMORY_RESULTS
-"
-    [ -n "$KG_RESULTS" ] && OUTPUT+="Failure patterns: $KG_RESULTS
+$MEMORY_RESULTS
 "
   fi
 fi
