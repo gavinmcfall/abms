@@ -1,15 +1,11 @@
 #!/bin/bash
-# inject.sh — PreToolUse hook for ABMS rule injection
+# inject.sh (Phase 2) — PreToolUse hook with MemPalace memory queries
 #
-# Orchestrates the injection pipeline:
-#   1. Parse action from hook JSON
-#   2. Route to ruleset via engine.sh
-#   3. Load static rules for that ruleset
-#   4. Load matching corrections by tag
-#   5. Output everything (injected into assistant context)
+# Extends Phase 1 with Layer 5: semantic memory search
+# Falls back gracefully to Phase 1 behavior if MemPalace is unavailable
 
 RULES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MAX_LINES=40
+MAX_LINES=50  # increased budget for memory results
 
 # Parse input JSON from stdin
 INPUT=$(cat)
@@ -22,13 +18,10 @@ TOOL_INPUT=$(echo "$INPUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 ti = d.get('tool_input', {})
-# For Bash: command. For Edit/Write: file_path
 print(ti.get('command', ti.get('file_path', '')))" 2>/dev/null)
 
-# Bail early if we couldn't parse
 [ -z "$TOOL" ] && exit 0
 
-# Split into command and file_path based on tool type
 COMMAND=""
 FILE_PATH=""
 case "$TOOL" in
@@ -39,7 +32,7 @@ esac
 # Layer 1: Route to ruleset
 RULESET=$("$RULES_DIR/engine.sh" "$TOOL" "$COMMAND" "$FILE_PATH")
 
-# Layer 2: Check worklog scope for context enrichment
+# Layer 2: Check worklog scope
 SCOPE=""
 if [ -n "$CLAUDE_PROJECT_DIR" ] && [ -f "$CLAUDE_PROJECT_DIR/.claude/worklog.md" ]; then
   SCOPE=$(grep "^[a-f0-9]" "$CLAUDE_PROJECT_DIR/.claude/worklog.md" 2>/dev/null \
@@ -60,9 +53,8 @@ CORRECTION_OUTPUT=""
 CORRECTION_IDS=""
 for f in "$RULES_DIR/corrections/"*.md; do
   [ -f "$f" ] || continue
-  # Check if any tag in the frontmatter matches the ruleset
+  [ "$(basename "$f")" = "TEMPLATE.md" ] && continue
   if head -10 "$f" | grep -q "tags:.*$RULESET"; then
-    # Extract body (skip frontmatter)
     BODY=$(awk '/^---$/{n++; next} n>=2' "$f" | head -15)
     if [ -n "$BODY" ]; then
       CORRECTION_OUTPUT+="$BODY
@@ -78,7 +70,32 @@ if [ -n "$CORRECTION_OUTPUT" ]; then
 $CORRECTION_OUTPUT"
 fi
 
-# Write marker for outcome.sh (what was injected and which corrections)
+# Layer 5: MemPalace memory query with FadeMem importance scoring (Phase 3)
+# Searches palace for relevant memories, scores by importance
+# (relevance + access frequency + recency), corrections get 1.5x boost.
+# Falls back to raw search if scorer unavailable.
+if command -v mempalace &>/dev/null; then
+  SEARCH_QUERY="$RULESET verification corrections"
+  [ -n "$SCOPE" ] && SEARCH_QUERY="$SCOPE $SEARCH_QUERY"
+  [ -n "$FILE_PATH" ] && SEARCH_QUERY="$SEARCH_QUERY $(basename "$FILE_PATH" 2>/dev/null)"
+
+  SCORER="$RULES_DIR/score_results.py"
+  if [ -f "$SCORER" ]; then
+    # Phase 3: scored results
+    MEMORY_RESULTS=$(echo "$SEARCH_QUERY" | timeout 5 python3 "$SCORER" --results 5 2>/dev/null)
+  else
+    # Phase 2 fallback: raw results
+    MEMORY_RESULTS=$(timeout 3 mempalace search "$SEARCH_QUERY" --results 3 2>/dev/null | head -20)
+  fi
+
+  if [ -n "$MEMORY_RESULTS" ]; then
+    OUTPUT+="── Memory (scored) ──
+$MEMORY_RESULTS
+"
+  fi
+fi
+
+# Write marker for outcome.sh
 echo "$RULESET|$CORRECTION_IDS" > "$RULES_DIR/.last-injection"
 
 # Budget check
