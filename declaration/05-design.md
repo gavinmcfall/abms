@@ -519,5 +519,5 @@ inject.sh calls this scorer to rank memory results before injection, ensuring th
 - **New correction tags:** Just use them — no registration required
 - **Custom scoring:** Replace fademem_scorer.py with any scoring function
 - **Alternative memory backends:** Replace MemPalace search calls with any vector store
-- **Blocking escalation:** When a correction fires N times without behavioral change, generate a blocking hook script (like verify-gate.sh)
+- **Blocking escalation:** When a correction fires N times without behavioral change, generate a blocking hook script (like verify-gate.sh). For destructive operations specifically, the production implementation is [dcg](https://github.com/Dicklesworthstone/destructive_command_guard) — a Rust-based hook with 49+ security packs. See `implementation/hooks/DCG-INTEGRATION.md` for how dcg fits the escalation ladder.
 - **Multi-model verification:** Generate prompts for Gemini/Codex to cross-check (integrates with existing review-extensions skill)

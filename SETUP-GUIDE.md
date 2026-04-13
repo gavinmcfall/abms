@@ -355,18 +355,85 @@ crontab -e
 
 ---
 
+## Enforcement Layer: dcg (strongly recommended)
+
+ABMS corrections are advisory — they surface in context but don't block the action. For destructive operations (DROP TABLE, rm -rf, git push --force, kubectl delete, etc.), advisory isn't enough. This is the role of [dcg (Destructive Command Guard)](https://github.com/Dicklesworthstone/destructive_command_guard) — a Rust-based hook with 49+ security packs that physically blocks destructive commands.
+
+dcg is developed independently from ABMS but integrates into the same PreToolUse hook chain. See [DCG-INTEGRATION.md](implementation/hooks/DCG-INTEGRATION.md) for the full integration rationale.
+
+### Install dcg
+
+Try the official installer first:
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/destructive_command_guard/main/install.sh?$(date +%s)" | bash -s -- --easy-mode
+```
+
+The installer auto-wires dcg into Claude Code, Gemini CLI, Codex, and Cursor settings files.
+
+### glibc version mismatch (Ubuntu 22.04 and older)
+
+On Ubuntu 22.04 LTS (glibc 2.35), the pre-built binary fails to load (requires glibc 2.39). Build from source:
+
+```bash
+cargo install --git https://github.com/Dicklesworthstone/destructive_command_guard --locked destructive_command_guard
+```
+
+Then update the hook path in `~/.claude/settings.json` from `/home/youruser/.local/bin/dcg` to `/home/youruser/.cargo/bin/dcg`.
+
+### Configure packs for your stack
+
+The default install only enables the `core` pack. Copy the stack-appropriate config:
+
+```bash
+mkdir -p ~/.config/dcg
+cp implementation/hooks/dcg-config.toml ~/.config/dcg/config.toml
+```
+
+Review the file and comment out packs you don't need (e.g. remove `cloud.aws` if you don't use AWS). Each pack adds blocking rules for a specific tool category.
+
+### Keep destructive-gate.sh for custom scripts
+
+dcg doesn't know about custom scripts with destructive flags (e.g. `load_staging.py --full-wipe`). The included `destructive-gate.sh` catches these:
+
+- `--full-wipe`, `--wipe`, `--truncate`, `--reset-hard`, `--drop-all`, `--nuke`, `--purge-all`
+
+It runs AFTER dcg in the hook chain. Your settings.json should have:
+
+```json
+"PreToolUse": [{
+  "matcher": "Bash",
+  "hooks": [
+    { "type": "command", "command": "~/.cargo/bin/dcg" },
+    { "type": "command", "command": "~/.claude/hooks/destructive-gate.sh" },
+    { "type": "command", "command": "~/.claude/hooks/git-safety.sh" },
+    { "type": "command", "command": "~/.claude/hooks/verify-gate.sh" },
+    { "type": "command", "command": "~/.claude/rules-engine/inject.sh", "timeout": 5 }
+  ]
+}]
+```
+
+Hard enforcement first (dcg, destructive-gate, verify-gate), advisory last (inject.sh for ABMS rules and memory).
+
+---
+
 ## How It Works (the short version)
 
-Every time Claude is about to use a tool (edit a file, run a command, commit), a hook fires:
+Every time Claude is about to use a tool (edit a file, run a command, commit), hooks fire in sequence:
 
-1. **Routes the action** — "editing a .tsx file" → UI rules, "git commit" → commit rules
-2. **Loads matching rules** — context-specific verification checklist
-3. **Loads matching corrections** — past incidents tagged for this type of work
-4. **Searches memory** (Phase 2) — "what have I forgotten about this?"
-5. **Scores by importance** (Phase 3) — frequently-needed corrections rank higher
+**Hard enforcement (fails closed):**
+1. **dcg** — Blocks 49+ classes of destructive commands (rm -rf, DROP TABLE, kubectl delete, git push --force, etc.)
+2. **destructive-gate.sh** — Blocks custom script flags (--full-wipe, --nuke, etc.) that dcg doesn't know about
+3. **git-safety.sh** — Blocks dangerous git operations
+4. **verify-gate.sh** — Blocks git commits without passing tests
 
-All of this lands in Claude's context right before it acts — in the "recency zone" where attention is strongest, not at the start of the session where it would fade over a long conversation.
+**Advisory (informs but doesn't block):**
+5. **inject.sh** — Routes the action, loads context-specific rules, matches corrections by tag, searches memory, scores by importance, injects all of it into Claude's context
 
-After the action, another hook logs the outcome and bumps access counts on corrections that fired. Corrections that keep being relevant grow in importance. Corrections that stop matching fade naturally.
+Advisory lands in Claude's context in the "recency zone" — right before the action, where attention is strongest. Not at the start of the session where it would fade over a long conversation.
+
+After the action, another hook logs the outcome and bumps access counts on corrections that fired. Corrections that keep being relevant grow in importance. Corrections that stop matching fade naturally. Every Monday, the lifecycle script reviews correction health and flags promotion candidates.
+
+When advisory corrections aren't enough (the AI ignores them despite 100+ surfacings), the escalation path is: correction → permanent rule → blocking hook. The dcg integration is where that final enforcement lives.
 
 The full design rationale, research, and architecture documentation is in the `declaration/` directory if you want to understand the why behind all of this.
