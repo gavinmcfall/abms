@@ -1,0 +1,63 @@
+# dcg configuration — ABMS escalation layer
+# Packs enabled based on Gavin's actual stack (databases, k8s, cloudflare, containers)
+
+[packs]
+enabled = [
+    "core",
+
+    # Databases — the NPC loadout incident (2026-04-12) was a database wipe
+    "database.postgresql",
+    "database.mysql",
+    "database.sqlite",
+    "database.redis",
+    "database.mongodb",
+
+    # Kubernetes — home-ops cluster
+    "kubernetes.kubectl",
+    "kubernetes.helm",
+    "kubernetes.kustomize",
+
+    # Containers
+    "containers.docker",
+    "containers.compose",
+
+    # CDN/Edge — scbridge uses Cloudflare Workers
+    "cdn.cloudflare_workers",
+    "cdn.cloudfront",
+
+    # Cloud providers — only enable what you use
+    "cloud.aws",
+
+    # Storage
+    "storage.s3",
+
+    # Remote operations
+    "remote.rsync",
+    "remote.ssh",
+    "remote.scp",
+
+    # Infrastructure
+    "infrastructure.terraform",
+    "infrastructure.ansible",
+
+    # System
+    "system.disk",
+
+    # Backup tools
+    "backup.restic",
+    "backup.borg",
+    "backup.rclone",
+]
+
+# Fail open if dcg itself errors — never block legitimate work due to tool bug
+[runtime]
+fail_open_on_error = true
+fail_open_on_timeout = true
+
+[heredoc]
+enabled = true
+timeout_ms = 50
+
+# Agent profile — Claude Code is trusted but still subject to packs
+[agents.claude-code]
+trust_level = "high"
